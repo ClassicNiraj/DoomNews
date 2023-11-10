@@ -8,11 +8,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumedWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,14 +51,34 @@ import com.example.doomnews.R
 import com.example.doomnews.data.DataSource
 import com.example.doomnews.model.NewsArticle
 import com.example.doomnews.ui.theme.DoomNewsTheme
+import com.example.doomnews.ui.utils.DoomNewsContentType
 
 @Composable
-fun DoomNewsApp() {
+fun DoomNewsApp(
+    windowSize: WindowWidthSizeClass
+) {
     val viewModel: DoomNewsViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     // TODO: Add contentType and when conditional to determine windowSize
+    val contentType: DoomNewsContentType
+    when (windowSize) {
+        WindowWidthSizeClass.Compact -> {
+            contentType = DoomNewsContentType.LIST_ONLY
+        }
 
+        WindowWidthSizeClass.Medium -> {
+            contentType = DoomNewsContentType.LIST_ONLY
+        }
+
+        WindowWidthSizeClass.Expanded -> {
+            contentType = DoomNewsContentType.LIST_AND_DETAIL
+        }
+
+        else -> {
+            contentType = DoomNewsContentType.LIST_ONLY
+        }
+    }
     Scaffold(
         topBar = {
             DoomNewsAppBar(
@@ -62,15 +88,54 @@ fun DoomNewsApp() {
         }
     ) { innerPadding ->
         // TODO: Add simple navigation with if/else conditional to show details
-        // TODO: Add navigation to go to Feed page and List and Details page
+        if (contentType == DoomNewsContentType.LIST_AND_DETAIL) {
+            DoomNewsListAndDetails(
+                articles = uiState.articlesList,
+                OnClick = {
+                          viewModel.updateCurrentArticle(it)
+                },
+                selectedArticle = uiState.currentArticle,
+                contentPadding = innerPadding,
+                modifier = Modifier
+                    .fillMaxWidth()
+            )
+        } else {
+            if (uiState.isShowingListPage) {
+                DoomNewsFeed(
+                    articles = uiState.articlesList,
+                    onClick = {
+                        viewModel.updateCurrentArticle(it)
+                        viewModel.navigateToDetailPage()
+                    },
+                    contentPadding = innerPadding,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            top = dimensionResource(R.dimen.padding_medium),
+                            start = dimensionResource(R.dimen.padding_medium),
+                            end = dimensionResource(R.dimen.padding_medium),
+                        )
+                )
+            } else {
+                DoomNewsDetail(
+                    selectedArticle = uiState.currentArticle,
+                    contentPadding = innerPadding,
+                    onBackPressed = {
+                        viewModel.navigateToListPage()
+                    }
+                )
 
-        DoomNewsList(
-            articles = uiState.articlesList,
-            onClick = {
-                      /* TODO: Call ViewModel to updateCurrentArticle and navigateToDetailPage */
-            },
-            contentPadding = innerPadding,
-        )
+            }
+            // TODO: Add navigation to go to Feed page and List and Details page
+
+            DoomNewsList(
+                articles = uiState.articlesList,
+                onClick = {
+                    /* TODO: Call ViewModel to updateCurrentArticle and navigateToDetailPage */
+                },
+                contentPadding = innerPadding,
+            )
+        }
     }
 }
 
@@ -182,6 +247,9 @@ private fun DoomNewsDetail(
     @DimenRes imageSize: Int = R.dimen.image_size_small
 ) {
     /* TODO: Add Back Handler */
+    BackHandler {
+        onBackPressed()
+    }
 
     Column(
         modifier = modifier
@@ -218,6 +286,30 @@ private fun DoomNewsDetail(
 
 // TODO: Add DoomNewsFeed() composable
 
+@Composable
+fun DoomNewsFeed(
+    articles: List<NewsArticle>,
+    onClick: (NewsArticle) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        contentPadding = contentPadding,
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(articles) { article ->
+            DoomNewsListItem(
+                newsArticle = article,
+                onItemClick = onClick,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+    }
+}
+
 // TODO: Add DoomNewsListAndDetails() composable
 
 @Composable
@@ -249,6 +341,35 @@ fun DoomNewsListPreview() {
     }
 }
 
+@Composable
+fun DoomNewsListAndDetails(
+    articles: List<NewsArticle>,
+    OnClick: (NewsArticle) -> Unit,
+    selectedArticle: NewsArticle,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier){
+        DoomNewsList(
+            articles = articles,
+            onClick = OnClick,
+            contentPadding = contentPadding,
+            modifier = Modifier.weight(2f)
+                .padding(
+                    top = dimensionResource(R.dimen.padding_medium),
+                    start = dimensionResource(R.dimen.padding_medium),
+                    end = dimensionResource(R.dimen.padding_medium),
+                )
+        )
+        DoomNewsDetail(
+            selectedArticle = selectedArticle,
+            onBackPressed = { },
+            contentPadding = contentPadding,
+            modifier = Modifier.weight(3f)
+        )
+    }
+}
+
 @Preview
 @Composable
 fun DoomNewsListItemPreview() {
@@ -274,5 +395,3 @@ fun DoomNewsDetailPreview() {
         }
     }
 }
-
-// TODO: Add DoomNewsListAndDetailPreview() Preview Composable
